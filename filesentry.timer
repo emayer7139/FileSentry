@@ -1,0 +1,10 @@
+[Unit]
+Description=Run FileSentry every 30 minutes
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=30min
+Unit=filesentry.service
+
+[Install]
+WantedBy=timers.target
