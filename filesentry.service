@@ -1,0 +1,8 @@
+[Unit]
+Description=FileSentry Integrity Check
+
+[Service]
+Type=oneshot
+WorkingDirectory=/path/to/FileSentry
+ExecStart=/path/to/FileSentry/filesentry.sh
+Environment=HOME=/home/yourusername
