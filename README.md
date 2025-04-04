@@ -1,46 +1,33 @@
 # FileSentry - File Integrity Monitoring Tool
 
-FileSentry is a lightweight Bash-based tool designed to monitor the integrity of critical system files by comparing their current cryptographic hashes against a previously generated baseline. It helps you detect unauthorized modifications, new files, or deletions in monitored directories and can alert you via email if any discrepancies are found.
+FileSentry is a lightweight Bash tool that monitors the integrity of critical system files by comparing their current SHA‑256 hashes with a previously generated baseline. It helps you detect unauthorized modifications, new files, or deletions in your monitored directories and can alert you via email when discrepancies are found.
 
 ---
 
 ## Features
 
 - **Baseline Generation:**  
-  Generate an initial SHA‑256 hash database for all files in specified directories.
+  Create an initial hash database for all files in specified directories.
   
 - **Integrity Monitoring:**  
   Recursively scans monitored directories and compares current file hashes against the baseline.
   
 - **Alerting & Logging:**  
-  Logs all scan results and discrepancies. Sends email alerts when changes are detected.
+  Logs scan results and sends email alerts when changes are detected.
   
 - **Automation Ready:**  
-  Easily schedule periodic scans using systemd timers or cron.
-  
-- **Configurable:**  
-  Customize which directories to monitor and the email address for alerts via a simple `config.ini` file.
-
----
-
-## Project Structure
-
-FileSentry/ ├── filesentry.sh # Main script for baseline generation and integrity checking ├── notify.sh # Script to send email alerts via msmtp ├── config.ini # Configuration for monitored directories, email, log file, and baseline file paths ├── baseline.db # Baseline file containing file hashes (auto-created with --init) ├── filesentry.log # Log file for recording scan results and alerts ├── filesentry.service # systemd service unit for automated runs ├── filesentry.timer # systemd timer unit to schedule periodic scans └── README.md # This documentation file
-
-yaml
-Copy
+  Easily schedule periodic scans using systemd timers (or cron).
 
 ---
 
 ## Requirements
 
-- **Operating System:** Linux (e.g., Kali, Ubuntu, Debian)
+- **OS:** Linux (e.g., Kali, Ubuntu, Debian)
 - **Dependencies:**
-  - Bash
-  - `find`, `sha256sum`
-  - `msmtp` (with a correctly configured `~/.msmtprc`)
+  - Bash, find, sha256sum
+  - msmtp (with your SMTP settings configured in `~/.msmtprc`)
 - **Privileges:**  
-  Some directories (like `/etc` or `/var/log`) may require root privileges to read. Run the script with appropriate permissions or use sudo for specific commands as needed.
+  Some monitored directories may require root privileges. FileSentry uses `sudo` for commands like `arp-scan` and `nmap` when necessary.
 
 ---
 
@@ -51,15 +38,9 @@ Copy
    ```bash
    git clone https://github.com/yourusername/FileSentry.git
    cd FileSentry
-Install Dependencies (Debian-based systems):
+2. Configure msmtp:
 
-bash
-Copy
-sudo apt update
-sudo apt install msmtp msmtp-mta -y
-Configure msmtp:
-
-Create a file named ~/.msmtprc with your SMTP settings. For example, for Gmail:
+Create ~/.msmtprc with your SMTP settings. For example (for Gmail):
 
 ini
 Copy
@@ -77,98 +58,55 @@ user           your.email@gmail.com
 password       your_app_password_here
 
 account default : gmail
-Then secure the configuration:
+Secure the file:
 
-bash
-Copy
-chmod 600 ~/.msmtprc
-Configure FileSentry:
+    chmod 600 ~/.msmtprc
 
-Edit config.ini to customize your settings. For example:
+3. Edit config.ini as needed.
 
-ini
-Copy
-# === FileSentry Config ===
-MONITOR_DIRS="/etc /var/log"
-ALERT_EMAIL="your.email@example.com"
-LOG_FILE="./filesentry.log"
-BASELINE="baseline.db"
-Make the Scripts Executable:
-
-bash
-Copy
-chmod +x filesentry.sh notify.sh
 Usage
-Baseline Generation
-Before running integrity checks, generate an initial baseline of file hashes. This will scan all directories specified in MONITOR_DIRS and create (or overwrite) the baseline.db file:
+- Generate Baseline
+  Create an initial baseline of file hashes (this scans all files in the directories specified in MONITOR_DIRS):
 
-bash
-Copy
-./filesentry.sh --init
-Integrity Check
-Run the script to perform an integrity check against the baseline:
 
-bash
-Copy
-./filesentry.sh
-If discrepancies are found (new, modified, or deleted files), alerts will be logged in filesentry.log and an email will be sent to the address specified in ALERT_EMAIL.
+      ./filesentry.sh --init
+  This will generate (or overwrite) the baseline.db file.
 
-Note: FileSentry monitors all regular files in the specified directories. Some files (especially log files in /var/log) are dynamic and may trigger frequent alerts. You may want to adjust MONITOR_DIRS if certain directories generate too many false positives.
+- Run Integrity Check
+  To check for unauthorized changes:
 
-Automation with systemd
-To run FileSentry automatically (e.g., every 30 minutes), use systemd timers:
+      ./filesentry.sh
+  If changes are detected (new, modified, or deleted files), FileSentry logs the details in filesentry.log and sends an email alert.
 
-Copy Unit Files to the System Directory
+- Automation with systemd
+  To run FileSentry automatically (e.g., every 30 minutes), follow these steps:
 
-The project includes filesentry.service and filesentry.timer. Copy these files to /etc/systemd/system/:
+  Copy the Unit Files:
 
-bash
-Copy
-sudo cp filesentry.service /etc/systemd/system/
-sudo cp filesentry.timer /etc/systemd/system/
-Reload the Systemd Daemon
+      sudo cp filesentry.service /etc/systemd/system/
+      sudo cp filesentry.timer /etc/systemd/system/
 
-bash
-Copy
-sudo systemctl daemon-reload
-Enable and Start the Timer
+  Reload systemd:
 
-bash
-Copy
-sudo systemctl enable --now filesentry.timer
-Verify the Timer
+      sudo systemctl daemon-reload
+  Enable and Start the Timer:
 
-Check that the timer is active:
+      sudo systemctl enable --now filesentry.timer
 
-bash
-Copy
-systemctl list-timers | grep filesentry
-msmtp Environment Configuration and Workaround
-When FileSentry is run as a systemd service or timer, it may not inherit the full user environment (especially the HOME variable). Without this, msmtp might not locate your ~/.msmtprc file, resulting in errors like:
+  Verify the Timer:
 
-pgsql
-Copy
-/home/yourusername/.msmtprc: line 11: user: command not found
-Solution:
-Ensure that the HOME environment variable is set in your service unit. In filesentry.service, include:
+      systemctl list-timers | grep filesentry
+  Note: Ensure your filesentry.service sets the correct HOME environment variable so that msmtp can locate your ~/.msmtprc. For example, the service file should include:
+  
+      Environment=HOME=/home/yourusername
 
-ini
-Copy
-Environment=HOME=/home/yourusername
-Replace /home/yourusername with your actual home directory. This setting ensures that when FileSentry runs automatically, msmtp correctly loads your SMTP configuration from ~/.msmtprc.
+## Troubleshooting
+- Email Alerts Not Sending:
+  Check your ~/.msmtp.log for errors and verify your ~/.msmtprc configuration.
 
-Troubleshooting
-No Email Alerts?
+- Frequent Alerts:
+  If dynamic files (e.g., log files) trigger too many alerts, consider refining MONITOR_DIRS to exclude them.
 
-Verify your SMTP configuration in ~/.msmtprc.
-
-Check the msmtp log at ~/.msmtprc or ~/.msmtp.log for error messages.
-
-Ensure that FileSentry detects discrepancies to trigger the alert.
-
-Frequent Alerts from Log Files:
-Files in /var/log often change. Consider excluding these directories from MONITOR_DIRS if false positives are a concern.
-
-Temporary Files:
-FileSentry creates temporary files (scan_result.tmp, parsed_scan.txt, unknown_devices.tmp) during execution. These files are automatically removed at the end of the run.
+- Temporary Files:
+  The script creates temporary files (scan_result.tmp, parsed_scan.txt, etc.) during execution, which are automatically cleaned up at the end.
 
